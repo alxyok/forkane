@@ -33,5 +33,8 @@ augment_data = True
 
 kernel_size = 4
 
+add_coordinates = False
+unrefine = False
+
 min_num_crops = 1
 max_num_crops = 13

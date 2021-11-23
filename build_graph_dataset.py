@@ -72,22 +72,33 @@ class BuildGraphDatasetFlow(FlowSpec):
         import torch
         import torch_geometric as pyg
         
-        def build_crop(data, i=0):
+        def build_crop(data, idx=0):
+            
+            i_size, j_size, k_size = data[0].shape
+        
+            coordinates = list()
+            for k in range(k_size):
+                for j in range(j_size):
+                    for i in range(i_size):
+                        coordinates.append([float(i), float(j), float(k)])
+            coordinates = np.stack((coordinates))
             
             x0, x1, y = data
+            x = np.hstack((x0.reshape((-1, 1)), x1.reshape((-1, 1))))
+            y = np.reshape(y, (-1, 1))
             
-            x0 = np.reshape(x0, (-1, 1))
-            x1 = np.reshape(x1, (-1, 1))
-            x = np.vstack((x0, x1))
+            if config.add_coordinates:
+                x = np.hstack((x, coordinates))
+                y = np.hstack((y, coordinates))
+            
             x = torch.tensor(x, dtype=torch.float)
-
-            y = torch.tensor(np.reshape(y, (-1, 1)), dtype=torch.float)
+            y = torch.tensor(y, dtype=torch.float)
 
             index = torch.tensor(self.edge_index, dtype=torch.long)
 
             graph = pyg.data.Data(x=x, edge_index=index, y=y)
 
-            processed_path = osp.join(config.processed_dir, f'data-{current.task_id}-{i}.pt')
+            processed_path = osp.join(config.processed_dir, f'data-{current.task_id}-{idx}.pt')
             torch.save(graph, processed_path)
         
         
@@ -95,9 +106,7 @@ class BuildGraphDatasetFlow(FlowSpec):
         
         grid_shape = (3,) + self.grid_shape
         data = np.memmap(raw_path, dtype='float32', mode='r', shape=grid_shape)
-        x0 = data[0, :, :, :]
-        x1 = data[1, :, :, :]
-        y = data[2, :, :, :]
+        x0, x1, y = data[0, ...], data[1, ...], data[2, ...]
         
         if config.augment_data:
             min_ = config.min_num_crops
@@ -108,11 +117,11 @@ class BuildGraphDatasetFlow(FlowSpec):
                 yi = np.random.randint(0, self.y_dim - config.kernel_size)
                 zi = np.random.randint(0, self.z_dim - config.kernel_size)
 
-                x0 = x0[xi:xi + config.kernel_size, yi:yi + config.kernel_size, zi:zi + config.kernel_size]
-                x1 = x1[xi:xi + config.kernel_size, yi:yi + config.kernel_size, zi:zi + config.kernel_size]
-                y = y[xi:xi + config.kernel_size, yi:yi + config.kernel_size, zi:zi + config.kernel_size]
+                x0_ = x0[xi:xi + config.kernel_size, yi:yi + config.kernel_size, zi:zi + config.kernel_size]
+                x1_ = x1[xi:xi + config.kernel_size, yi:yi + config.kernel_size, zi:zi + config.kernel_size]
+                y_ = y[xi:xi + config.kernel_size, yi:yi + config.kernel_size, zi:zi + config.kernel_size]
                 
-                build_crop((x0, x1, y), i=random_step)
+                build_crop((x0_, x1_, y_), idx=random_step)
         
         else:
             build_crop((x0, x1, y))

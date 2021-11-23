@@ -1,3 +1,5 @@
+#!/bin/bash 
+
 # MIT License
 
 # Copyright (c) 2021 alxyok
